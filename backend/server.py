@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -14,9 +14,15 @@ import bcrypt
 import jwt
 from bson import ObjectId
 import socketio
+import base64
+import shutil
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Create uploads directory
+UPLOADS_DIR = ROOT_DIR / 'uploads'
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -50,20 +56,26 @@ class User(BaseModel):
     full_name: str
     phone: Optional[str] = None
     role: str  # 'student', 'driver', 'admin'
-    profile_image: Optional[str] = None  # base64
+    profile_image: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Driver-specific fields
     license_number: Optional[str] = None
-    license_image: Optional[str] = None  # base64
+    license_image: Optional[str] = None
     van_number: Optional[str] = None
     van_capacity: Optional[int] = None
-    id_document: Optional[str] = None  # base64
+    id_document: Optional[str] = None
+    insurance_document: Optional[str] = None
+    pollution_cert: Optional[str] = None
+    vehicle_rc: Optional[str] = None
     is_verified: bool = False
+    verification_status: str = "pending"  # pending, approved, rejected
+    rejection_reason: Optional[str] = None
+    documents_uploaded_at: Optional[datetime] = None
     
     # Student-specific fields
     school_college: Optional[str] = None
-    home_location: Optional[Dict[str, float]] = None  # {"lat": 0, "lng": 0, "address": ""}
+    home_location: Optional[Dict[str, float]] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -91,6 +103,7 @@ class UserResponse(BaseModel):
     van_number: Optional[str]
     van_capacity: Optional[int]
     is_verified: bool
+    verification_status: str
     created_at: datetime
 
 class TokenResponse(BaseModel):
@@ -103,13 +116,13 @@ class Route(BaseModel):
     driver_id: str
     driver_name: str
     route_name: str
-    start_location: Dict[str, Any]  # {"lat": 0, "lng": 0, "address": ""}
+    start_location: Dict[str, Any]
     end_location: Dict[str, Any]
-    waypoints: List[Dict[str, Any]] = []  # List of stops
+    waypoints: List[Dict[str, Any]] = []
     total_seats: int
     available_seats: int
     price_per_month: float
-    departure_time: str  # "08:00 AM"
+    departure_time: str
     school_college: str
     days_operating: List[str] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -132,9 +145,13 @@ class Booking(BaseModel):
     student_name: str
     driver_id: str
     pickup_location: Dict[str, Any]
-    status: str = "pending"  # pending, approved, rejected, active, cancelled
+    status: str = "pending"
     monthly_fee: float
-    payment_status: str = "unpaid"  # Mock payment: unpaid, paid
+    payment_status: str = "unpaid"
+    trip_status: str = "not_started"  # not_started, in_progress, completed
+    trip_start_time: Optional[datetime] = None
+    trip_end_time: Optional[datetime] = None
+    current_location: Optional[Dict[str, float]] = None  # For live tracking
     created_at: datetime = Field(default_factory=datetime.utcnow)
     approved_at: Optional[datetime] = None
 
@@ -151,7 +168,7 @@ class Review(BaseModel):
     student_id: str
     student_name: str
     route_id: str
-    rating: int  # 1-5
+    rating: int
     comment: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -167,6 +184,32 @@ class DriverUpdate(BaseModel):
     van_number: Optional[str] = None
     van_capacity: Optional[int] = None
     id_document: Optional[str] = None
+    insurance_document: Optional[str] = None
+    pollution_cert: Optional[str] = None
+    vehicle_rc: Optional[str] = None
+
+class DriverVerificationAction(BaseModel):
+    action: str  # approve, reject
+    reason: Optional[str] = None
+
+class SOSAlert(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    user_role: str
+    booking_id: Optional[str] = None
+    location: Optional[Dict[str, float]] = None
+    message: Optional[str] = None
+    status: str = "open"  # open, resolved
+    priority: str = "high"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None
+
+class SOSCreate(BaseModel):
+    booking_id: Optional[str] = None
+    location: Optional[Dict[str, float]] = None
+    message: Optional[str] = None
 
 class LocationUpdate(BaseModel):
     lat: float
@@ -217,6 +260,7 @@ def user_to_response(user: dict) -> UserResponse:
         van_number=user.get("van_number"),
         van_capacity=user.get("van_capacity"),
         is_verified=user.get("is_verified", False),
+        verification_status=user.get("verification_status", "pending"),
         created_at=user["created_at"]
     )
 
@@ -245,15 +289,21 @@ async def leave_room(sid, data):
 @sio.event
 async def location_update(sid, data):
     """Driver sends location update"""
-    driver_id = data.get('driver_id')
-    location = data.get('location')  # {lat, lng}
+    booking_id = data.get('booking_id')
+    location = data.get('location')
     
-    # Broadcast to all students tracking this driver
+    # Update booking location in database
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {"current_location": location}}
+    )
+    
+    # Broadcast to student tracking this booking
     await sio.emit('driver_location', {
-        'driver_id': driver_id,
+        'booking_id': booking_id,
         'location': location,
         'timestamp': datetime.utcnow().isoformat()
-    }, room=f"driver_{driver_id}")
+    }, room=f"booking_{booking_id}")
 
 # ==================== API Routes ====================
 
@@ -265,12 +315,10 @@ async def root():
 
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
-    # Check if user exists
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user = User(
         email=user_data.email,
         password_hash=hash_password(user_data.password),
@@ -279,12 +327,10 @@ async def register(user_data: UserCreate):
         role=user_data.role,
         school_college=user_data.school_college,
         home_location=user_data.home_location,
-        is_verified=(user_data.role == 'admin')  # Auto-verify admins
+        is_verified=(user_data.role == 'admin')
     )
     
     await db.users.insert_one(user.dict())
-    
-    # Create token
     access_token = create_access_token(data={"sub": user.id, "role": user.role})
     
     return TokenResponse(
@@ -320,6 +366,7 @@ async def update_driver_profile(driver_data: DriverUpdate, current_user: dict = 
     
     update_data = {k: v for k, v in driver_data.dict().items() if v is not None}
     if update_data:
+        update_data["documents_uploaded_at"] = datetime.utcnow()
         await db.users.update_one({"id": current_user["id"]}, {"$set": update_data})
     
     updated_user = await db.users.find_one({"id": current_user["id"]})
@@ -330,12 +377,53 @@ async def get_all_drivers():
     drivers = await db.users.find({"role": "driver"}).to_list(1000)
     return [user_to_response(driver) for driver in drivers]
 
+# ==================== File Upload Route ====================
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Upload file and return path"""
+    try:
+        # Generate unique filename
+        file_extension = Path(file.filename).suffix
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = UPLOADS_DIR / unique_filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Return relative path
+        return {
+            "success": True,
+            "filename": unique_filename,
+            "path": f"/uploads/{unique_filename}",
+            "url": f"/api/uploads/{unique_filename}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@api_router.get("/uploads/{filename}")
+async def get_uploaded_file(filename: str):
+    """Serve uploaded files"""
+    file_path = UPLOADS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Read file and return base64 for display
+    with open(file_path, "rb") as f:
+        file_data = base64.b64encode(f.read()).decode('utf-8')
+    
+    return {"data": file_data, "filename": filename}
+
 # ==================== Route Routes ====================
 
 @api_router.post("/routes", response_model=Route)
 async def create_route(route_data: RouteCreate, current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can create routes")
+    
+    if not current_user.get("is_verified"):
+        raise HTTPException(status_code=403, detail="Only verified drivers can create routes")
     
     route = Route(
         driver_id=current_user["id"],
@@ -398,12 +486,10 @@ async def create_booking(booking_data: BookingCreate, current_user: dict = Depen
     if current_user["role"] != "student":
         raise HTTPException(status_code=403, detail="Only students can create bookings")
     
-    # Get route
     route = await db.routes.find_one({"id": booking_data.route_id})
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
     
-    # Check if already booked
     existing_booking = await db.bookings.find_one({
         "route_id": booking_data.route_id,
         "student_id": current_user["id"],
@@ -412,7 +498,6 @@ async def create_booking(booking_data: BookingCreate, current_user: dict = Depen
     if existing_booking:
         raise HTTPException(status_code=400, detail="Already booked this route")
     
-    # Check availability
     if route["available_seats"] <= 0:
         raise HTTPException(status_code=400, detail="No seats available")
     
@@ -446,21 +531,17 @@ async def update_booking(booking_id: str, booking_update: BookingUpdate, current
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
-    # Only driver can approve/reject
     if booking_update.status in ["approved", "rejected"] and booking["driver_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Update booking
     update_data = {"status": booking_update.status}
     if booking_update.status == "approved":
         update_data["approved_at"] = datetime.utcnow()
-        # Decrease available seats
         await db.routes.update_one(
             {"id": booking["route_id"]},
             {"$inc": {"available_seats": -1}}
         )
     elif booking_update.status == "rejected" or booking_update.status == "cancelled":
-        # If was approved before, increase available seats
         if booking["status"] == "approved":
             await db.routes.update_one(
                 {"id": booking["route_id"]},
@@ -470,6 +551,124 @@ async def update_booking(booking_id: str, booking_update: BookingUpdate, current
     await db.bookings.update_one({"id": booking_id}, {"$set": update_data})
     updated_booking = await db.bookings.find_one({"id": booking_id})
     return updated_booking
+
+# ==================== Trip Management ====================
+
+@api_router.post("/bookings/{booking_id}/start-trip")
+async def start_trip(booking_id: str, current_user: dict = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"id": booking_id})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["driver_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {
+            "trip_status": "in_progress",
+            "trip_start_time": datetime.utcnow()
+        }}
+    )
+    
+    return {"message": "Trip started", "booking_id": booking_id}
+
+@api_router.post("/bookings/{booking_id}/end-trip")
+async def end_trip(booking_id: str, current_user: dict = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"id": booking_id})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["driver_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {
+            "trip_status": "completed",
+            "trip_end_time": datetime.utcnow(),
+            "status": "completed"
+        }}
+    )
+    
+    return {"message": "Trip completed", "booking_id": booking_id}
+
+@api_router.post("/bookings/{booking_id}/update-location")
+async def update_location(booking_id: str, location: LocationUpdate, current_user: dict = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"id": booking_id})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["driver_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    location_data = {"lat": location.lat, "lng": location.lng}
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {"current_location": location_data}}
+    )
+    
+    # Emit via Socket.IO
+    await sio.emit('driver_location', {
+        'booking_id': booking_id,
+        'location': location_data,
+        'timestamp': datetime.utcnow().isoformat()
+    }, room=f"booking_{booking_id}")
+    
+    return {"message": "Location updated", "location": location_data}
+
+# ==================== SOS Routes ====================
+
+@api_router.post("/sos")
+async def create_sos_alert(sos_data: SOSCreate, current_user: dict = Depends(get_current_user)):
+    sos = SOSAlert(
+        user_id=current_user["id"],
+        user_name=current_user["full_name"],
+        user_role=current_user["role"],
+        booking_id=sos_data.booking_id,
+        location=sos_data.location,
+        message=sos_data.message
+    )
+    
+    await db.sos_alerts.insert_one(sos.dict())
+    
+    # Emit to admin dashboard
+    await sio.emit('sos_alert', {
+        'id': sos.id,
+        'user_name': sos.user_name,
+        'location': sos.location,
+        'message': sos.message,
+        'created_at': sos.created_at.isoformat()
+    }, room='admin')
+    
+    return {"message": "SOS alert created", "alert_id": sos.id}
+
+@api_router.get("/sos")
+async def get_sos_alerts(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        # Students/Drivers see only their own
+        alerts = await db.sos_alerts.find({"user_id": current_user["id"]}).to_list(1000)
+    else:
+        # Admin sees all
+        alerts = await db.sos_alerts.find({}).sort("created_at", -1).to_list(1000)
+    
+    return alerts
+
+@api_router.put("/sos/{alert_id}/resolve")
+async def resolve_sos(alert_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can resolve SOS alerts")
+    
+    await db.sos_alerts.update_one(
+        {"id": alert_id},
+        {"$set": {
+            "status": "resolved",
+            "resolved_at": datetime.utcnow(),
+            "resolved_by": current_user["full_name"]
+        }}
+    )
+    
+    return {"message": "SOS alert resolved"}
 
 # ==================== Review Routes ====================
 
@@ -505,13 +704,68 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({}).to_list(1000)
     return [user_to_response(user) for user in users]
 
-@api_router.put("/admin/verify-driver/{driver_id}")
-async def verify_driver(driver_id: str, current_user: dict = Depends(get_current_user)):
+@api_router.get("/admin/drivers/pending")
+async def get_pending_drivers(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    await db.users.update_one({"id": driver_id, "role": "driver"}, {"$set": {"is_verified": True}})
-    return {"message": "Driver verified successfully"}
+    drivers = await db.users.find({
+        "role": "driver",
+        "verification_status": "pending",
+        "documents_uploaded_at": {"$exists": True}
+    }).to_list(1000)
+    
+    return [user_to_response(driver) for driver in drivers]
+
+@api_router.put("/admin/drivers/{driver_id}/verify")
+async def verify_driver(driver_id: str, action: DriverVerificationAction, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if action.action == "approve":
+        await db.users.update_one(
+            {"id": driver_id, "role": "driver"},
+            {"$set": {
+                "is_verified": True,
+                "verification_status": "approved"
+            }}
+        )
+        return {"message": "Driver approved successfully"}
+    elif action.action == "reject":
+        await db.users.update_one(
+            {"id": driver_id, "role": "driver"},
+            {"$set": {
+                "is_verified": False,
+                "verification_status": "rejected",
+                "rejection_reason": action.reason
+            }}
+        )
+        return {"message": "Driver rejected", "reason": action.reason}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+
+@api_router.get("/admin/trips/live")
+async def get_live_trips(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get all in-progress trips
+    live_trips = await db.bookings.find({"trip_status": "in_progress"}).to_list(1000)
+    
+    # Enrich with driver and student info
+    enriched_trips = []
+    for trip in live_trips:
+        driver = await db.users.find_one({"id": trip["driver_id"]})
+        route = await db.routes.find_one({"id": trip["route_id"]})
+        
+        enriched_trips.append({
+            **trip,
+            "driver_name": driver.get("full_name") if driver else "Unknown",
+            "driver_phone": driver.get("phone") if driver else None,
+            "route_name": route.get("route_name") if route else "Unknown",
+        })
+    
+    return enriched_trips
 
 @api_router.get("/admin/stats")
 async def get_stats(current_user: dict = Depends(get_current_user)):
@@ -521,17 +775,27 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     total_students = await db.users.count_documents({"role": "student"})
     total_drivers = await db.users.count_documents({"role": "driver"})
     verified_drivers = await db.users.count_documents({"role": "driver", "is_verified": True})
+    pending_drivers = await db.users.count_documents({"role": "driver", "verification_status": "pending"})
     total_routes = await db.routes.count_documents({})
     total_bookings = await db.bookings.count_documents({})
     active_bookings = await db.bookings.count_documents({"status": "approved"})
+    live_trips = await db.bookings.count_documents({"trip_status": "in_progress"})
+    open_sos_alerts = await db.sos_alerts.count_documents({"status": "open"})
+    
+    # Calculate revenue (mock)
+    total_revenue = total_bookings * 2000  # Mock calculation
     
     return {
         "total_students": total_students,
         "total_drivers": total_drivers,
         "verified_drivers": verified_drivers,
+        "pending_drivers": pending_drivers,
         "total_routes": total_routes,
         "total_bookings": total_bookings,
-        "active_bookings": active_bookings
+        "active_bookings": active_bookings,
+        "live_trips": live_trips,
+        "open_sos_alerts": open_sos_alerts,
+        "total_revenue": total_revenue
     }
 
 # Include router
