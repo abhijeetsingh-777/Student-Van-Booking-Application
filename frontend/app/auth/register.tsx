@@ -110,6 +110,7 @@ export default function Register() {
             <View style={styles.roleContainer}>
               <RoleButton role="student" icon="school-outline" label="Student" />
               <RoleButton role="driver" icon="car-outline" label="Driver" />
+              <RoleButton role="admin" icon="shield-outline" label="Admin" />
             </View>
 
             <View style={styles.inputContainer}>
