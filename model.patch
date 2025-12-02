@@ -1,132 +1,203 @@
-diff --git a/test_result.md b/test_result.md
-index 9c31f84..126a53e 100644
---- a/test_result.md
-+++ b/test_result.md
-@@ -107,75 +107,93 @@ user_problem_statement: "Build a mobile app that connects students with verified
- backend:
-   - task: "Authentication APIs (Register/Login)"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Created JWT-based auth with bcrypt password hashing, register and login endpoints"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ All authentication APIs working perfectly. Tested: student/driver/admin registration (200 OK), login for all roles (200 OK), /auth/me endpoint with JWT tokens (200 OK). JWT tokens generated correctly with proper expiration. Password hashing with bcrypt working. Role-based registration working (admin auto-verified)."
-         
-   - task: "User Management APIs"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Created user CRUD with role-based data (student/driver/admin fields)"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ User management working correctly. Tested via /auth/me endpoint and admin/users endpoint. User data properly stored with role-specific fields (student: school_college, driver: license fields, admin: auto-verified). User responses include all required fields."
-         
-   - task: "Route Management APIs"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Driver route creation, listing, filtering by school, route deletion"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ Route management APIs working perfectly. Tested: POST /routes (driver creates route - 200 OK), GET /routes/my (driver gets own routes - 200 OK), GET /routes?school_college=filter (public route search - 200 OK). Route data properly stored with all fields including location, seats, pricing, schedule. Available seats tracking working."
-         
-   - task: "Booking Management APIs"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "high"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Student booking creation, driver approval/rejection, seat management"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ Booking management working perfectly. Tested: POST /bookings (student creates booking - 200 OK), GET /bookings/my (student/driver get bookings - 200 OK), PUT /bookings/{id} (driver approves booking - 200 OK). Booking status transitions working (pending -> approved). Seat availability decreases on approval. Proper authorization checks in place."
-         
-   - task: "Review System APIs"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "medium"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Student reviews for drivers with ratings"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ Review system working correctly. Tested: POST /reviews (student creates review - 200 OK). Review data properly stored with rating (1-5), comment, student/driver/route IDs. Only students can create reviews (proper authorization)."
-         
-   - task: "Admin Management APIs"
-     implemented: true
--    working: "NA"
-+    working: true
-     file: "backend/server.py"
-     stuck_count: 0
-     priority: "medium"
--    needs_retesting: true
-+    needs_retesting: false
-     status_history:
-       - working: "NA"
-         agent: "main"
-         comment: "Admin user management, driver verification, statistics dashboard"
-+      - working: true
-+        agent: "testing"
-+        comment: "✅ Admin management APIs working perfectly. Tested: GET /admin/users (admin gets all users - 200 OK), GET /admin/stats (admin gets statistics - 200 OK), PUT /admin/verify-driver/{id} (admin verifies driver - 200 OK). Statistics show correct counts (students: 1, drivers: 1, routes: 1, bookings: 1, active_bookings: 1). Proper admin authorization checks."
- 
- frontend:
-   - task: "Authentication UI (Login/Register)"
-@@ -233,14 +251,13 @@ metadata:
-   run_ui: false
- 
- test_plan:
--  current_focus:
--    - "Authentication APIs (Register/Login)"
--    - "Route Management APIs"
--    - "Booking Management APIs"
-+  current_focus: []
-   stuck_tasks: []
--  test_all: true
-+  test_all: false
-   test_priority: "high_first"
- 
- agent_communication:
-   - agent: "main"
--    message: "Completed full MVP implementation with backend APIs (auth, routes, bookings, reviews, admin) and frontend mobile app with role-based navigation (Student/Driver/Admin tabs). All API endpoints ready for testing. Using MongoDB for data storage, JWT for auth, and Expo for mobile UI."
-\ No newline at end of file
-+    message: "Completed full MVP implementation with backend APIs (auth, routes, bookings, reviews, admin) and frontend mobile app with role-based navigation (Student/Driver/Admin tabs). All API endpoints ready for testing. Using MongoDB for data storage, JWT for auth, and Expo for mobile UI."
-+  - agent: "testing"
-+    message: "✅ BACKEND TESTING COMPLETE - All 21 API tests passed successfully! Comprehensive testing completed for all backend flows: Authentication (register/login for all roles, JWT tokens, /auth/me), Route Management (create/list/filter routes), Booking Management (create/approve bookings, seat tracking), Review System (student reviews), and Admin Management (user management, statistics, driver verification). All APIs responding correctly with proper status codes, data validation, authorization checks, and business logic. Backend is production-ready."
-\ No newline at end of file
+diff --git a/frontend/app/admin/index.tsx b/frontend/app/admin/index.tsx
+index 086a796..ea55c56 100644
+--- a/frontend/app/admin/index.tsx
++++ b/frontend/app/admin/index.tsx
+@@ -82,18 +82,31 @@ export default function AdminDashboard() {
+               label="Total Drivers"
+               value={stats?.total_drivers || 0}
+               color="#10B981"
++              subtitle={`${stats?.verified_drivers || 0} verified`}
+             />
+             <StatCard
+-              icon="checkmark-circle"
+-              label="Verified Drivers"
+-              value={stats?.verified_drivers || 0}
+-              color="#8B5CF6"
++              icon="shield-checkmark"
++              label="Pending Verification"
++              value={stats?.pending_drivers || 0}
++              color="#F59E0B"
+             />
+             <StatCard
+               icon="map"
+               label="Total Routes"
+               value={stats?.total_routes || 0}
+-              color="#F59E0B"
++              color="#8B5CF6"
++            />
++            <StatCard
++              icon="navigate"
++              label="Live Trips"
++              value={stats?.live_trips || 0}
++              color="#10B981"
++            />
++            <StatCard
++              icon="warning"
++              label="Open SOS Alerts"
++              value={stats?.open_sos_alerts || 0}
++              color="#EF4444"
+             />
+             <StatCard
+               icon="list"
+@@ -102,9 +115,9 @@ export default function AdminDashboard() {
+               color="#EC4899"
+             />
+             <StatCard
+-              icon="calendar"
+-              label="Active Bookings"
+-              value={stats?.active_bookings || 0}
++              icon="cash"
++              label="Total Revenue"
++              value={`₹${((stats?.total_revenue || 0) / 1000).toFixed(1)}K`}
+               color="#06B6D4"
+             />
+           </View>
+@@ -203,6 +216,11 @@ const styles = StyleSheet.create({
+     color: '#6B7280',
+     marginTop: 2,
+   },
++  statSubtitle: {
++    fontSize: 10,
++    color: '#9CA3AF',
++    marginTop: 1,
++  },
+   section: {
+     marginBottom: 24,
+   },
+diff --git a/model.patch b/model.patch
+index 22df5ea..e69de29 100644
+--- a/model.patch
++++ b/model.patch
+@@ -1,132 +0,0 @@
+-diff --git a/test_result.md b/test_result.md
+-index 9c31f84..126a53e 100644
+---- a/test_result.md
+-+++ b/test_result.md
+-@@ -107,75 +107,93 @@ user_problem_statement: "Build a mobile app that connects students with verified
+- backend:
+-   - task: "Authentication APIs (Register/Login)"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Created JWT-based auth with bcrypt password hashing, register and login endpoints"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ All authentication APIs working perfectly. Tested: student/driver/admin registration (200 OK), login for all roles (200 OK), /auth/me endpoint with JWT tokens (200 OK). JWT tokens generated correctly with proper expiration. Password hashing with bcrypt working. Role-based registration working (admin auto-verified)."
+-         
+-   - task: "User Management APIs"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Created user CRUD with role-based data (student/driver/admin fields)"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ User management working correctly. Tested via /auth/me endpoint and admin/users endpoint. User data properly stored with role-specific fields (student: school_college, driver: license fields, admin: auto-verified). User responses include all required fields."
+-         
+-   - task: "Route Management APIs"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Driver route creation, listing, filtering by school, route deletion"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ Route management APIs working perfectly. Tested: POST /routes (driver creates route - 200 OK), GET /routes/my (driver gets own routes - 200 OK), GET /routes?school_college=filter (public route search - 200 OK). Route data properly stored with all fields including location, seats, pricing, schedule. Available seats tracking working."
+-         
+-   - task: "Booking Management APIs"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "high"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Student booking creation, driver approval/rejection, seat management"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ Booking management working perfectly. Tested: POST /bookings (student creates booking - 200 OK), GET /bookings/my (student/driver get bookings - 200 OK), PUT /bookings/{id} (driver approves booking - 200 OK). Booking status transitions working (pending -> approved). Seat availability decreases on approval. Proper authorization checks in place."
+-         
+-   - task: "Review System APIs"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "medium"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Student reviews for drivers with ratings"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ Review system working correctly. Tested: POST /reviews (student creates review - 200 OK). Review data properly stored with rating (1-5), comment, student/driver/route IDs. Only students can create reviews (proper authorization)."
+-         
+-   - task: "Admin Management APIs"
+-     implemented: true
+--    working: "NA"
+-+    working: true
+-     file: "backend/server.py"
+-     stuck_count: 0
+-     priority: "medium"
+--    needs_retesting: true
+-+    needs_retesting: false
+-     status_history:
+-       - working: "NA"
+-         agent: "main"
+-         comment: "Admin user management, driver verification, statistics dashboard"
+-+      - working: true
+-+        agent: "testing"
+-+        comment: "✅ Admin management APIs working perfectly. Tested: GET /admin/users (admin gets all users - 200 OK), GET /admin/stats (admin gets statistics - 200 OK), PUT /admin/verify-driver/{id} (admin verifies driver - 200 OK). Statistics show correct counts (students: 1, drivers: 1, routes: 1, bookings: 1, active_bookings: 1). Proper admin authorization checks."
+- 
+- frontend:
+-   - task: "Authentication UI (Login/Register)"
+-@@ -233,14 +251,13 @@ metadata:
+-   run_ui: false
+- 
+- test_plan:
+--  current_focus:
+--    - "Authentication APIs (Register/Login)"
+--    - "Route Management APIs"
+--    - "Booking Management APIs"
+-+  current_focus: []
+-   stuck_tasks: []
+--  test_all: true
+-+  test_all: false
+-   test_priority: "high_first"
+- 
+- agent_communication:
+-   - agent: "main"
+--    message: "Completed full MVP implementation with backend APIs (auth, routes, bookings, reviews, admin) and frontend mobile app with role-based navigation (Student/Driver/Admin tabs). All API endpoints ready for testing. Using MongoDB for data storage, JWT for auth, and Expo for mobile UI."
+-\ No newline at end of file
+-+    message: "Completed full MVP implementation with backend APIs (auth, routes, bookings, reviews, admin) and frontend mobile app with role-based navigation (Student/Driver/Admin tabs). All API endpoints ready for testing. Using MongoDB for data storage, JWT for auth, and Expo for mobile UI."
+-+  - agent: "testing"
+-+    message: "✅ BACKEND TESTING COMPLETE - All 21 API tests passed successfully! Comprehensive testing completed for all backend flows: Authentication (register/login for all roles, JWT tokens, /auth/me), Route Management (create/list/filter routes), Booking Management (create/approve bookings, seat tracking), Review System (student reviews), and Admin Management (user management, statistics, driver verification). All APIs responding correctly with proper status codes, data validation, authorization checks, and business logic. Backend is production-ready."
+-\ No newline at end of file
