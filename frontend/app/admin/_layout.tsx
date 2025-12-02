@@ -17,7 +17,7 @@ export default function AdminLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: '600',
         },
       }}
@@ -27,25 +27,43 @@ export default function AdminLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
+            <Ionicons name="stats-chart-outline" size={size - 2} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="users"
+        name="verification"
         options={{
-          title: 'Users',
+          title: 'Verify',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+            <Ionicons name="shield-checkmark-outline" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="live-trips"
+        options={{
+          title: 'Live Trips',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="navigate-outline" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="sos"
+        options={{
+          title: 'SOS',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="warning-outline" size={size - 2} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          title: 'More',
+          tabBarIcon: ({ color, size}) => (
+            <Ionicons name="menu-outline" size={size - 2} color={color} />
           ),
         }}
       />
