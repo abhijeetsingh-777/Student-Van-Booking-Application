@@ -77,6 +77,14 @@ export const bookingAPI = {
     const response = await api.put(`/api/bookings/${id}`, { status });
     return response.data;
   },
+  startTrip: async (id: string) => {
+    const response = await api.post(`/api/bookings/${id}/start-trip`);
+    return response.data;
+  },
+  endTrip: async (id: string) => {
+    const response = await api.post(`/api/bookings/${id}/end-trip`);
+    return response.data;
+  },
 };
 
 // Review APIs
@@ -103,14 +111,38 @@ export const driverAPI = {
   },
 };
 
+// SOS APIs
+export const sosAPI = {
+  create: async (data: any) => {
+    const response = await api.post('/api/sos', data);
+    return response.data;
+  },
+  getAll: async () => {
+    const response = await api.get('/api/sos');
+    return response.data;
+  },
+  resolve: async (id: string) => {
+    const response = await api.put(`/api/sos/${id}/resolve`);
+    return response.data;
+  },
+};
+
 // Admin APIs
 export const adminAPI = {
   getUsers: async () => {
     const response = await api.get('/api/admin/users');
     return response.data;
   },
-  verifyDriver: async (driverId: string) => {
-    const response = await api.put(`/api/admin/verify-driver/${driverId}`);
+  getPendingDrivers: async () => {
+    const response = await api.get('/api/admin/drivers/pending');
+    return response.data;
+  },
+  verifyDriver: async (driverId: string, action: string, reason?: string) => {
+    const response = await api.put(`/api/admin/drivers/${driverId}/verify`, { action, reason });
+    return response.data;
+  },
+  getLiveTrips: async () => {
+    const response = await api.get('/api/admin/trips/live');
     return response.data;
   },
   getStats: async () => {
