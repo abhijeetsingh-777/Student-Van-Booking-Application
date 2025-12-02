@@ -248,13 +248,15 @@ const styles = StyleSheet.create({
   roleContainer: {
     flexDirection: 'row',
     marginBottom: 24,
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   roleButton: {
     flex: 1,
+    minWidth: '30%',
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',
