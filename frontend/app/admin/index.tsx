@@ -34,7 +34,13 @@ export default function AdminDashboard() {
     loadStats();
   }, []);
 
-  const StatCard = ({ icon, label, value, color, subtitle }: any) => (
+  const StatCard = ({ icon, label, value, color, subtitle }: {
+    icon: string;
+    label: string;
+    value: string | number;
+    color: string;
+    subtitle?: string;
+  }) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={24} color={color} />
