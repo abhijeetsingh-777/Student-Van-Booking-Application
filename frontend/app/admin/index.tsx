@@ -216,6 +216,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  statSubtitle: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
   section: {
     marginBottom: 24,
   },
