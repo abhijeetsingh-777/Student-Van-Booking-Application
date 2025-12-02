@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     loadStats();
   }, []);
 
-  const StatCard = ({ icon, label, value, color }: any) => (
+  const StatCard = ({ icon, label, value, color, subtitle }: any) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={24} color={color} />
@@ -42,6 +42,7 @@ export default function AdminDashboard() {
       <View style={styles.statContent}>
         <Text style={styles.statValue}>{value}</Text>
         <Text style={styles.statLabel}>{label}</Text>
+        {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
       </View>
     </View>
   );
