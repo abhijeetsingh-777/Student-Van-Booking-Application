@@ -82,18 +82,31 @@ export default function AdminDashboard() {
               label="Total Drivers"
               value={stats?.total_drivers || 0}
               color="#10B981"
+              subtitle={`${stats?.verified_drivers || 0} verified`}
             />
             <StatCard
-              icon="checkmark-circle"
-              label="Verified Drivers"
-              value={stats?.verified_drivers || 0}
-              color="#8B5CF6"
+              icon="shield-checkmark"
+              label="Pending Verification"
+              value={stats?.pending_drivers || 0}
+              color="#F59E0B"
             />
             <StatCard
               icon="map"
               label="Total Routes"
               value={stats?.total_routes || 0}
-              color="#F59E0B"
+              color="#8B5CF6"
+            />
+            <StatCard
+              icon="navigate"
+              label="Live Trips"
+              value={stats?.live_trips || 0}
+              color="#10B981"
+            />
+            <StatCard
+              icon="warning"
+              label="Open SOS Alerts"
+              value={stats?.open_sos_alerts || 0}
+              color="#EF4444"
             />
             <StatCard
               icon="list"
@@ -102,9 +115,9 @@ export default function AdminDashboard() {
               color="#EC4899"
             />
             <StatCard
-              icon="calendar"
-              label="Active Bookings"
-              value={stats?.active_bookings || 0}
+              icon="cash"
+              label="Total Revenue"
+              value={`₹${((stats?.total_revenue || 0) / 1000).toFixed(1)}K`}
               color="#06B6D4"
             />
           </View>
