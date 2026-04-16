@@ -1,9 +1,9 @@
-# Student Van Booking Application
+# Student Van Booking Application 🚌
 
 A full-stack booking platform designed to help students book van transportation easily and efficiently.  
 The system streamlines ride requests, booking management, and transportation coordination.
 
-## Features
+## 👉Features
 - Student van booking system
 - Easy ride request and scheduling
 - Booking management
@@ -11,20 +11,22 @@ The system streamlines ride requests, booking management, and transportation coo
 - User-friendly interface
 - Organized project structure with testing support
 
-## Tech Stack
+## 👉Tech Stack
 ### Frontend
-
+- TypeScript
+- HTML
+- CSS
 ### Backend
 - Python
 
-## Project Structure# Here are your Instructions
+## 👉Project Structure# Here are your Instructions
 frontend/
 backend/
 tests/
 README.md
 
 
-## How to Run
+##👉 How to Run
 
 1. Clone the repository
 2. Open the frontend folder and install dependencies
@@ -32,7 +34,7 @@ README.md
 4. Run the frontend application
 5. Access the project in your browser
 
-## Future Improvements
+## 👉Future Improvements
 - User authentication
 - Live tracking
 - Payment integration
@@ -40,5 +42,5 @@ README.md
 - Admin dashboard
 - Mobile responsive design
 
-## Author
+##👉 Author
 Created as a Student Van Booking project.
