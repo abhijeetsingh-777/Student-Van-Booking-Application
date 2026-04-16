@@ -1,46 +1,49 @@
-# Student Van Booking Application 🚌
+A mobile application that connects school/college students with verified van drivers, allowing students to easily find transportation routes, book seats, and track rides in real time. The app must support both Student and Driver user roles.
 
-A full-stack booking platform designed to help students book van transportation easily and efficiently.  
-The system streamlines ride requests, booking management, and transportation coordination.
+✅ Core Features
+-User Authentication
+-Sign up/log in for Students and Drivers
+-Phone number/OTP authentication
+-Driver verification (upload ID, license, van details)
 
-## 👉Features
-- Student van booking system
-- Easy ride request and scheduling
-- Booking management
-- Frontend and backend integration
-- User-friendly interface
-- Organized project structure with testing support
-
-## 👉Tech Stack
-### Frontend
-- TypeScript
-- HTML
-- CSS
-### Backend
-- Python
-
-## 👉Project Structure# Here are your Instructions
-frontend/
-backend/
-tests/
-README.md
+## 👉Student Features
+Search for available vans based on:
+·School/college
+·Pickup location
+·Route matching
+·View route map and estimated travel time
+·Book or reserve a seat
+·Track van location in real time
+·Rate and review drivers
+·Monthly fee information & payment option (optional)
 
 
-##👉 How to Run
+## 👉Driver Features
+·Create and manage routes
+·Set available seats
+·Accept or reject student bookings
+·Real-time location sharing
+·View student list for each trip
+·Earnings dashboard (optional)
+·Route Matching System
+·Students input their home location + school/college
+·App automatically shows best-fit routes from nearby drivers
+·Show distance, timing, availability, and cost
+·Real-time route updates with GPS
+·Notifications
+·Ride arrival alerts
+·Booking confirmation
+·Route or timing changes
+·Payment reminders (if enabled)
+·Admin Panel
+·Manage users (students + drivers)
+·Approve/verify drivers
+·Monitor reported issues
 
-1. Clone the repository
-2. Open the frontend folder and install dependencies
-3. Start the backend server
-4. Run the frontend application
-5. Access the project in your browser
+## Data analytics (usage, routes, etc.)
 
-## 👉Future Improvements
-- User authentication
-- Live tracking
-- Payment integration
-- Notifications
-- Admin dashboard
-- Mobile responsive design
+## 📱 UI Requirements
 
-##👉 Author
-Created as a Student Van Booking project.
+Clean, simple, student-friendly interface
+Two separate apps or a single app with role selection
+Live map integration (Google Maps or OpenStreetMap)
